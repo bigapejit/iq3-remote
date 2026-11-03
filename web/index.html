@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141a20">
+<meta name="description" content="An unofficial remote for the DaVinci IQ3 vaporizer.">
+<title>IQ3</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,100..900&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<style>
+  @property --heat { syntax: '<number>'; inherits: true; initial-value: 0; }
+
+  :root {
+    --slate-hi: #2a3540;
+    --slate-lo: #141a20;
+    --zirconia: #ece6dc;
+    --mist: #8b97a3;
+    --ember: #ff8a45;
+    --glacier: #a8dcea;
+    --cold-glow: #3d5468;
+    --hot-glow: #8a3d17;
+    --font: 'Saira', system-ui, sans-serif;
+    --top: max(16px, env(safe-area-inset-top));
+    --bottom: max(14px, env(safe-area-inset-bottom));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--slate-lo); color: var(--zirconia); font-family: var(--font); -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+  body { overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  button { font-family: var(--font); cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--glacier); outline-offset: 3px; border-radius: 8px; }
+  [hidden] { display: none !important; }
+
+  /* The stage: its light is the oven temperature */
+  .stage {
+    position: fixed; inset: 0; overflow: hidden;
+    background:
+      radial-gradient(72% 46% at 44% 60%, color-mix(in oklab, var(--cold-glow), var(--hot-glow) calc(var(--heat) * 100%)) 0%, transparent 72%),
+      linear-gradient(180deg, var(--slate-hi) 0%, var(--slate-lo) 80%);
+  }
+  .stage::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .9s ease;
+    background: radial-gradient(46% 30% at 50% 34%, rgba(236,230,220,.13), transparent 70%);
+  }
+  .stage.drawing::after { opacity: 1; }
+  #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* Everything but the device steps back while picking a wrap */
+  .hud, .thermo, .dock, .label { transition: opacity .35s ease; }
+  .stage.showcase .hud, .stage.showcase .thermo, .stage.showcase .dock, .stage.showcase .label { opacity: 0 !important; pointer-events: none; }
+
+  /* Readout */
+  .hud { position: absolute; top: var(--top); left: 22px; right: 22px; pointer-events: none; }
+  .topline { display: flex; align-items: center; justify-content: space-between; }
+  .name { pointer-events: auto; background: none; border: 0; padding: 8px 0; color: var(--zirconia); font-weight: 300; font-size: 22px; font-stretch: 125%; letter-spacing: .05em; -webkit-touch-callout: none; }
+  .topline-right { display: flex; align-items: center; gap: 14px; pointer-events: auto; }
+  .install { padding: 7px 13px; border: 0; border-radius: 999px; background: rgba(236,230,220,.1); color: var(--zirconia); font-size: 13px; font-weight: 500; }
+  .battery { display: flex; align-items: center; gap: 8px; color: var(--mist); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .battery svg { width: 27px; height: 14px; overflow: visible; }
+  .battery .shell { fill: none; stroke: currentColor; stroke-width: 1.2; }
+  .battery .nub { fill: currentColor; }
+  #batFill { fill: var(--zirconia); }
+  #batFill.low { fill: var(--ember); }
+  #batBolt { fill: var(--ember); stroke: var(--slate-lo); stroke-width: 1; }
+  .mode { margin: 22px 0 0; font-size: 16px; color: var(--mist); }
+  .temp { margin: 2px 0 0 -5px; font-weight: 200; font-stretch: 125%; font-size: clamp(84px, 27vw, 150px); line-height: .95; letter-spacing: -.04em; font-variant-numeric: tabular-nums; transition: opacity .6s ease; }
+  .temp.dim { opacity: .42; }
+  .sub { margin: 8px 0 0; min-height: 1.4em; max-width: 19ch; font-size: 17px; line-height: 1.35; opacity: .8; font-variant-numeric: tabular-nums; }
+  .sub.hot { color: var(--ember); opacity: 1; }
+  .help { margin: 10px 0 0; max-width: 21ch; font-size: 19px; font-weight: 300; line-height: 1.4; color: var(--zirconia); opacity: .85; }
+
+  /* A label written on the device itself, like the trunk label in a car app */
+  .label { position: absolute; left: 0; top: 0; padding: 12px 14px; background: none; border: 0; color: var(--zirconia); font-size: 17px; font-weight: 500; letter-spacing: .01em; white-space: nowrap; text-shadow: 0 1px 10px rgba(0,0,0,.65); will-change: transform; }
+  .label:active { opacity: .55; }
+
+  /* Temperature strip */
+  .thermo { position: absolute; right: 0; width: 124px; top: calc(var(--top) + 64px); bottom: calc(var(--bottom) + 104px); touch-action: none; }
+  .thermo canvas { width: 100%; height: 100%; display: block; }
+  .bubble { position: absolute; right: 120px; top: 0; max-width: 60vw; transform: translateY(-58%); text-align: right; opacity: 0; transition: opacity .2s; pointer-events: none; text-shadow: 0 2px 30px rgba(10,14,18,.6); }
+  .bubble.on { opacity: 1; }
+  .bubble b { display: block; font-weight: 200; font-stretch: 125%; font-size: 46px; line-height: 1; letter-spacing: -.03em; }
+  .bubble b:empty { display: none; }
+  .bubble small { display: block; margin-top: 4px; font-size: 13px; font-weight: 400; letter-spacing: .01em; color: var(--zirconia); opacity: .75; }
+
+  /* Dock */
+  .dock { position: absolute; left: 12px; right: 12px; bottom: var(--bottom); display: grid; grid-template-columns: repeat(5, 1fr); padding: 6px; border-radius: 26px; background: rgba(20,26,32,.5); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); box-shadow: inset 0 1px 0 rgba(236,230,220,.07); }
+  .dock button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 11px 2px 10px; background: none; border: 0; border-radius: 20px; color: var(--mist); font-size: 12px; transition: color .2s, background .2s; }
+  .dock button:active { background: rgba(236,230,220,.06); }
+  .dock button:disabled { opacity: .32; }
+  .dock button.on { color: var(--zirconia); }
+  .dock button.on::before { content: ''; position: absolute; top: 7px; right: calc(50% - 19px); width: 5px; height: 5px; border-radius: 50%; background: var(--ember); }
+  .dock svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  .toast { position: absolute; left: 22px; right: 130px; bottom: calc(var(--bottom) + 92px); padding: 12px 16px; border-radius: 18px; background: rgba(236,230,220,.94); color: var(--slate-lo); font-size: 14px; font-weight: 500; line-height: 1.35; opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s; pointer-events: none; }
+  .toast.on { opacity: 1; transform: none; }
+
+  /* Sheets */
+  .sheet-wrap { position: fixed; inset: 0; display: flex; align-items: flex-end; background: rgba(8,11,14,.45); opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .sheet-wrap.clear { background: transparent; }
+  .sheet-wrap.open { opacity: 1; pointer-events: auto; }
+  .sheet { width: 100%; max-height: 84vh; overflow: auto; padding: 10px 22px calc(var(--bottom) + 16px); border-radius: 26px 26px 0 0; background: rgba(30,38,46,.94); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); transform: translateY(28px); transition: transform .32s cubic-bezier(.2,.8,.2,1); }
+  .sheet-wrap.open .sheet { transform: none; }
+  .grab { width: 40px; height: 4px; margin: 4px auto 16px; border-radius: 2px; background: rgba(236,230,220,.22); }
+  .sheet h2 { margin: 0 0 6px; font-weight: 300; font-stretch: 125%; font-size: 24px; letter-spacing: .01em; }
+  .sheet .lede { margin: 0 0 12px; color: var(--mist); font-size: 14px; line-height: 1.45; }
+  .path-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 14px; width: 100%; padding: 15px 0; background: none; border: 0; border-top: 1px solid rgba(236,230,220,.08); color: inherit; text-align: left; }
+  .path-row .range { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
+  .path-row .meta { display: block; margin-top: 2px; font-size: 13px; color: var(--mist); }
+  .path-row svg { width: 120px; height: 40px; }
+  .path-row svg path { fill: none; stroke: rgba(236,230,220,.55); stroke-width: 1.5; }
+  .path-row.active .range { color: var(--ember); }
+  .path-row.active svg path { stroke: var(--ember); }
+  .empty { color: var(--mist); font-size: 15px; }
+
+  .wrap-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .wrap-head span { font-size: 16px; color: var(--mist); }
+  .swatch-label { margin: 14px 0 10px; font-size: 13px; color: var(--mist); }
+  .swatch-row { display: flex; flex-wrap: wrap; gap: 14px; }
+  .swatch { width: 52px; height: 52px; border-radius: 50%; border: 0; padding: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 4px 14px rgba(0,0,0,.35); transition: transform .15s; }
+  .swatch:active { transform: scale(.94); }
+  .swatch.on { box-shadow: 0 0 0 2px var(--slate-lo), 0 0 0 4px var(--ember), 0 4px 14px rgba(0,0,0,.35); }
+
+  .log { margin: 12px 0 0; max-height: 44vh; overflow: auto; padding: 10px; border-radius: 12px; background: rgba(0,0,0,.28); color: #c9d1d9; font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; user-select: text; -webkit-user-select: text; }
+  .info { margin: 0; color: var(--mist); font-size: 13px; line-height: 1.5; white-space: pre-line; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .pill { padding: 11px 16px; border: 0; border-radius: 999px; background: rgba(236,230,220,.09); color: var(--zirconia); font-size: 14px; font-weight: 500; text-decoration: none; }
+  .pill.danger { color: #ffab9a; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage::after, .sheet, .toast, .bubble, .temp, .hud, .thermo, .dock, .label { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main id="stage" class="stage">
+  <canvas id="gl" aria-label="Your IQ3. Drag sideways to turn it."></canvas>
+
+  <header class="hud">
+    <div class="topline">
+      <button id="name" class="name" aria-label="IQ3. Long-press for the developer log.">IQ3</button>
+      <div class="topline-right">
+      <button id="install" class="install" data-act="install" hidden>Install</button>
+      <div id="battery" class="battery" hidden>
+        <span id="batText">--%</span>
+        <svg viewBox="0 0 27 14" aria-hidden="true">
+          <rect class="shell" x=".6" y=".6" width="22.8" height="12.8" rx="3.6"/>
+          <rect class="nub" x="24.4" y="4.6" width="2" height="4.8" rx="1"/>
+          <rect id="batFill" x="3" y="3" height="8" width="0" rx="1.6"/>
+          <path id="batBolt" d="M13.4 1.5 8.6 7.6h3.6l-1.1 4.9 4.9-6.3h-3.6z"/>
+        </svg>
+      </div>
+      </div>
+    </div>
+    <p id="mode" class="mode">Not connected</p>
+    <div id="temp" class="temp" hidden></div>
+    <p id="sub" class="sub" aria-live="polite"></p>
+    <p id="help" class="help" hidden></p>
+  </header>
+
+  <button id="coFront" class="label" data-act="connect" hidden></button>
+
+  <div id="thermo" class="thermo" role="slider" aria-label="Temperature and power. Slide to set the temperature. Pull past the end and hold to turn on or off."><canvas></canvas></div>
+  <div id="bubble" class="bubble" aria-hidden="true"><b></b><small></small></div>
+
+  <nav class="dock" aria-label="Quick settings">
+    <button id="dockPaths" data-act="paths" data-needs-device disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18c3.5 0 4.5-7 8-7s4 3 7 3h3"/><circle cx="3" cy="18" r="1.2"/></svg>
+      <span>Paths</span>
+    </button>
+    <button id="dockWrap" data-act="wraps">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3.5" width="10" height="17" rx="2.5"/><path d="M7 9.5l10-4M7 14.5l10-4M7 19l10-4"/></svg>
+      <span>Wrap</span>
+    </button>
+    <button id="dockUnits" data-act="units" data-needs-device disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.6V5a2 2 0 1 1 4 0v8.6a4 4 0 1 1-4 0z"/><path d="M12 15.5V9"/></svg>
+      <span id="unitLabel">°F</span>
+    </button>
+    <button id="dockVibrate" data-act="vibrate" data-needs-device disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="4" width="8" height="16" rx="2.2"/><path d="M4.5 9v6M19.5 9v6"/></svg>
+      <span>Vibrate</span>
+    </button>
+    <button id="dockDim" data-act="dim" data-needs-device disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.2A7.8 7.8 0 1 1 9.8 4.5a6.2 6.2 0 0 0 9.7 9.7z"/></svg>
+      <span>Dim</span>
+    </button>
+  </nav>
+
+  <div id="toast" class="toast" role="status"></div>
+</main>
+
+<div id="sheetPaths" class="sheet-wrap">
+  <section class="sheet" aria-label="Smart paths">
+    <div class="grab"></div>
+    <h2>Smart paths</h2>
+    <p class="lede">Each path slowly raises the heat over the session. Tap one to start it.</p>
+    <div id="pathList"></div>
+  </section>
+</div>
+
+<div id="sheetWrap" class="sheet-wrap clear">
+  <section class="sheet" aria-label="Wrap">
+    <div class="grab"></div>
+    <div class="wrap-head"><h2>Wrap</h2><span id="wrapName"></span></div>
+    <div id="wrapList"></div>
+  </section>
+</div>
+
+<div id="sheetDev" class="sheet-wrap">
+  <section class="sheet" aria-label="Developer">
+    <div class="grab"></div>
+    <h2>Developer</h2>
+    <p id="devInfo" class="info"></p>
+    <div class="row">
+      <button class="pill" data-act="copy">Copy log</button>
+      <a class="pill" href="lab.html">Open test page</a>
+      <button class="pill danger" data-act="forget">Forget this IQ3</button>
+    </div>
+    <pre id="log" class="log"></pre>
+  </section>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

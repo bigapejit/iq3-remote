@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14110f">
+<title>IQ3 Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14110f;
+    --panel: #1d1916;
+    --panel-2: #27211c;
+    --line: #382f28;
+    --text: #f3ebe2;
+    --muted: #a69888;
+    --ember: #ff7a3d;
+    --ember-2: #ffb35c;
+    --cool: #7cc4d6;
+    --ok: #93d68f;
+    --bad: #ff6b6b;
+    --r: 18px;
+    --sans: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font-family: var(--sans); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 16px 40px; display: grid; gap: 14px; }
+  [hidden] { display: none !important; }
+
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px; }
+  .brand { font-weight: 700; letter-spacing: .02em; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+  .brand .dot { width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--ember-2), var(--ember)); box-shadow: 0 0 14px rgba(255,122,61,.6); }
+  .pill { font-size: 12px; font-weight: 500; padding: 6px 11px; border-radius: 999px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill.on { color: var(--ok); border-color: rgba(147,214,143,.35); }
+  .pill.busy { color: var(--ember-2); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; }
+  h1 { font-size: 26px; line-height: 1.15; margin: 2px 0 12px; letter-spacing: -.01em; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0 0 12px; font-weight: 500; }
+  .steps { margin: 0 0 18px; padding-left: 20px; color: var(--muted); line-height: 1.55; font-size: 15px; }
+  .steps b { color: var(--text); font-weight: 500; }
+
+  .btn { appearance: none; font: inherit; font-weight: 500; font-size: 15px; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 13px 12px; cursor: pointer; transition: transform .08s ease, background .15s ease, border-color .15s ease; touch-action: manipulation; }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .45; }
+  .btn.primary { background: linear-gradient(135deg, var(--ember-2), var(--ember)); color: #1b0f08; border: 0; font-weight: 700; }
+  .btn.big { width: 100%; padding: 17px; font-size: 17px; }
+  .btn.ghost { background: transparent; }
+  .btn.danger { color: var(--bad); border-color: rgba(255,107,107,.35); }
+  .btn.sm { padding: 8px 12px; font-size: 13px; border-radius: 10px; }
+  .btn.on { border-color: rgba(147,214,143,.55); color: var(--ok); }
+  .btn.busy { opacity: .6; }
+  .link { appearance: none; background: none; border: 0; color: var(--muted); font: inherit; font-size: 14px; padding: 14px 0 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; width: 100%; }
+
+  .notice { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.45; background: var(--panel-2); border: 1px solid var(--line); }
+  .notice.bad { border-color: rgba(255,107,107,.4); color: #ffd2d2; }
+  .notice .btn { margin-left: 6px; }
+  #connectMsg { margin-bottom: 14px; }
+  .notice.warn { border-color: rgba(255,179,92,.45); color: #ffe2c2; }
+  .fixes { margin: 8px 0 0; padding-left: 20px; }
+  .fixes li { margin: 5px 0; }
+  .blue { color: #6aa8ff; font-weight: 500; }
+  .red { color: var(--bad); font-weight: 500; }
+
+  .gauge { position: relative; width: 240px; max-width: 78vw; aspect-ratio: 1; margin: 0 auto; }
+  .gauge svg { width: 100%; height: 100%; display: block; }
+  .readout { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .big { font-size: 54px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .sub b { color: var(--ember-2); font-weight: 500; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+  .chip { font-size: 13px; padding: 6px 11px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chip.strong { color: var(--text); }
+  .chip.hot { color: var(--ember-2); border-color: rgba(255,179,92,.4); }
+  .chip.good { color: var(--ok); border-color: rgba(147,214,143,.35); }
+  .chips.small .chip { font-size: 12px; padding: 4px 9px; }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .tempctl { display: grid; grid-template-columns: 72px 1fr 72px; align-items: center; gap: 10px; margin: 16px 0; }
+  .btn.round { height: 72px; border-radius: 50%; font-size: 30px; padding: 0; }
+  .tempctl-label { text-align: center; font-size: 15px; line-height: 1.3; }
+  .tempctl-label small { color: var(--muted); font-size: 12px; }
+
+  details { margin-top: 14px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 4px 0; }
+  details[open] summary { margin-bottom: 12px; }
+  .raw { display: block; font-size: 13px; color: var(--muted); margin-top: 12px; }
+  .rawrow { display: flex; gap: 8px; margin-top: 6px; }
+  .rawrow input { flex: 1; min-width: 0; font: 15px var(--mono); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 10px 0 0; line-height: 1.45; }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; margin: 0 0 18px; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .path { font: 12.5px/1.5 var(--mono); color: var(--muted); padding: 8px 0; border-top: 1px solid var(--line); }
+  .path b { color: var(--text); font-weight: 500; }
+
+  .loghead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .loghead h2 { margin: 0; }
+  .loghead .btn { margin-left: 6px; }
+  .log { font: 11.5px/1.55 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px; height: 260px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+  .log .t { color: #6f6458; }
+  .log .tx { color: var(--ember-2); }
+  .log .rx { color: var(--cool); }
+  .log .err { color: var(--bad); }
+  .log .sys { color: var(--muted); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <div class="brand"><span class="dot"></span>IQ3 Lab</div>
+    <div id="status" class="pill">Not connected</div>
+  </header>
+
+  <div id="unsupported" class="notice bad" hidden></div>
+
+  <section id="connectCard" class="card">
+    <h1>Talk to your IQ3 directly.</h1>
+    <ol class="steps">
+      <li><b>Turn on the IQ3's Bluetooth.</b> Press the up and down buttons together <b>5 times within 4 seconds</b>. The control button flashes <span class="blue">blue 3 times</span> when Bluetooth comes on. If it flashes <span class="red">red</span>, you just turned it off, so do it again.</li>
+      <li><b>Force-stop the DaVinci app</b> (long-press its icon, then App info, then Force stop). The IQ3 only talks to one app at a time.</li>
+      <li><b>Tap Connect.</b> Your IQ3 should be the only thing in the list.</li>
+    </ol>
+    <div id="connectMsg" class="notice warn" hidden></div>
+    <button id="btnConnect" data-act="connect" class="btn primary big">Connect</button>
+    <button data-act="connectAll" class="link">Still nothing? Show every nearby device instead</button>
+    <p class="hint">Bluetooth switches itself off when the battery is under 10%.</p>
+  </section>
+
+  <section id="live" class="card" hidden>
+    <div class="gauge">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <defs>
+          <linearGradient id="heat" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stop-color="#ffb35c"/>
+            <stop offset="1" stop-color="#ff5a2a"/>
+          </linearGradient>
+        </defs>
+        <circle id="track" cx="100" cy="100" r="86" fill="none" stroke="#2c2520" stroke-width="12" stroke-linecap="round" transform="rotate(135 100 100)"/>
+        <circle id="arc" cx="100" cy="100" r="86" fill="none" stroke="url(#heat)" stroke-width="12" stroke-linecap="round" transform="rotate(135 100 100)" style="transition: stroke-dasharray .6s ease"/>
+        <circle id="tgtDot" cx="100" cy="14" r="6" fill="#14110f" stroke="#f3ebe2" stroke-width="3" style="transition: cx .6s ease, cy .6s ease"/>
+      </svg>
+      <div class="readout">
+        <div id="curTemp" class="big">--</div>
+        <div class="sub">target <b id="tgtTemp">--</b></div>
+      </div>
+    </div>
+    <div class="chips">
+      <span id="stateChip" class="chip strong">--</span>
+      <span id="batChip" class="chip">--</span>
+      <span id="readyChip" class="chip" hidden>At temp</span>
+    </div>
+    <div id="flagChips" class="chips small"></div>
+    <div id="dropped" class="notice" style="margin-top:14px" hidden>Connection dropped. <button data-act="reconnect" class="btn sm">Reconnect</button></div>
+  </section>
+
+  <section id="controls" class="card" hidden>
+    <h2>Controls</h2>
+    <div class="grid3">
+      <button data-act="buzz" class="btn">Buzz</button>
+      <button data-act="on" class="btn">Power on</button>
+      <button data-act="off" class="btn danger">Off</button>
+    </div>
+    <div class="tempctl">
+      <button data-act="down" class="btn round" aria-label="Lower temperature">−</button>
+      <div class="tempctl-label">Precision temp<br><small>one button press per tap</small></div>
+      <button data-act="up" class="btn round" aria-label="Raise temperature">+</button>
+    </div>
+    <div class="grid3">
+      <button data-act="unit" id="btnUnit" class="btn ghost">°C / °F</button>
+      <button data-act="vib" id="btnVib" class="btn ghost">Vibration</button>
+      <button data-act="stealth" id="btnStealth" class="btn ghost">Stealth</button>
+    </div>
+    <details>
+      <summary>Experimental: commands from the old Android app</summary>
+      <div class="grid2">
+        <button data-act="boost" class="btn ghost">Boost</button>
+        <button data-act="unboost" class="btn ghost">Exit boost</button>
+        <button data-act="cool" class="btn ghost">Cooldown</button>
+        <button data-act="showbat" class="btn ghost">Show battery</button>
+      </div>
+      <label class="raw">Send raw bytes to the control point (hex)
+        <span class="rawrow"><input id="rawHex" placeholder="50 03" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="text"><button data-act="raw" class="btn sm">Send</button></span>
+      </label>
+      <p class="hint">Factory reset (<code>20</code>) is blocked. This page never touches the firmware-update characteristic.</p>
+    </details>
+  </section>
+
+  <section id="info" class="card" hidden>
+    <h2>Device</h2>
+    <dl id="infoList" class="kv"></dl>
+    <h2>Lifetime</h2>
+    <dl id="statsList" class="kv"></dl>
+    <details>
+      <summary>Smart paths stored on the device</summary>
+      <div id="paths"></div>
+    </details>
+    <div style="margin-top:14px"><button data-act="refresh" class="btn ghost sm">Read everything again</button></div>
+  </section>
+
+  <section class="card">
+    <div class="loghead">
+      <h2>Log</h2>
+      <div><button data-act="copy" class="btn ghost sm">Copy</button><button data-act="clear" class="btn ghost sm">Clear</button></div>
+    </div>
+    <div id="log" class="log"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+// ---- Protocol constants (see PROTOCOL.md) ----------------------------------
+const UUID = {
+  SCAN: 'edfec62e-9900-b00b-1e50-005041934743',
+  SVC: 'edfec62e-9900-b00b-1e50-0050414e4743',
+  CTRL: '01000000-0000-0000-0000-0050414e4743',
+  STATE: '02000000-0000-0000-0000-0050414e4743',
+  SESSION: '05000000-0000-0000-0000-0050414e4743',
+  PATHS: '09000000-0000-0000-0000-0050414e4743',
+  STATS: '0d000000-0000-0000-0000-0050414e4743',
+  FIRMWARE: '19890902-0000-0000-0000-0050414e4743',
+  DIS: '0000180a-0000-1000-8000-00805f9b34fb',
+  GAP: '00001800-0000-1000-8000-00805f9b34fb',
+  GATT: '00001801-0000-1000-8000-00805f9b34fb',
+};
+const DIS_CHARS = [
+  ['00002a00-0000-1000-8000-00805f9b34fb', 'Name', 'GAP'],
+  ['00002a29-0000-1000-8000-00805f9b34fb', 'Maker', 'DIS'],
+  ['00002a24-0000-1000-8000-00805f9b34fb', 'Model', 'DIS'],
+  ['00002a26-0000-1000-8000-00805f9b34fb', 'Firmware', 'DIS'],
+  ['00002a28-0000-1000-8000-00805f9b34fb', 'Software', 'DIS'],
+  ['00002a25-0000-1000-8000-00805f9b34fb', 'Serial', 'DIS'],
+];
+const STATE_NAMES = {
+  0: 'Off', 1: 'Idle / charging', 2: 'On', 3: 'Smart path', 4: 'Smart path chosen',
+  5: 'Smart path temp', 6: 'Precision temp', 7: 'Boost', 8: 'Standby',
+};
+const KEY_UP = 0x02, KEY_DOWN = 0x04;
+const GAUGE_MIN = 20, GAUGE_MAX = 230; // °C
+
+// ---- Tiny helpers -----------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const bytesOf = (dv) => new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+const hex = (arr) => Array.from(arr, (b) => (b & 0xff).toString(16).padStart(2, '0')).join(' ');
+const ascii = (dv) => new TextDecoder().decode(bytesOf(dv)).replace(/\0/g, '').trim();
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+// ---- Log --------------------------------------------------------------------
+const logLines = [];
+function log(kind, text) {
+  const d = new Date();
+  const t = d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+  const arrow = { tx: '→', rx: '←', err: '!', sys: '·' }[kind] || '·';
+  logLines.push(`${t} ${arrow} ${text}`);
+  if (logLines.length > 600) logLines.shift();
+  const el = $('log');
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  const line = document.createElement('div');
+  line.innerHTML = `<span class="t">${t}</span> <span class="${kind}">${arrow} ${esc(text)}</span>`;
+  el.appendChild(line);
+  while (el.childNodes.length > 600) el.removeChild(el.firstChild);
+  if (atBottom) el.scrollTop = el.scrollHeight;
+}
+
+// ---- GATT access, one operation at a time (Chrome rejects overlapping ops) ---
+let chain = Promise.resolve();
+function gatt(fn) {
+  const run = chain.then(fn);
+  chain = run.catch(() => {});
+  return run;
+}
+
+let device = null;
+let server = null;
+const ch = {};
+let last = null;            // last parsed current-state
+let lastStateHex = '';
+let pollTimer = null;
+let busy = false;
+
+function setStatus(text, cls) {
+  const el = $('status');
+  el.textContent = text;
+  el.className = 'pill' + (cls ? ' ' + cls : '');
+}
+
+// ---- Connecting -------------------------------------------------------------
+async function pickDevice(showAll) {
+  const optionalServices = [UUID.SVC, UUID.SCAN, UUID.DIS, UUID.GAP, UUID.GATT];
+  const opts = showAll
+    ? { acceptAllDevices: true, optionalServices }
+    : {
+        filters: [
+          { services: [UUID.SCAN] },
+          { services: [UUID.SVC] },
+          { namePrefix: 'IQ' },
+          { namePrefix: 'DaVinci' },
+          { namePrefix: 'Davinci' },
+          { namePrefix: 'DAVINCI' },
+        ],
+        optionalServices,
+      };
+  log('sys', showAll ? 'Opening the device picker (all devices)…' : 'Opening the device picker…');
+  $('connectMsg').hidden = true;
+  const picked = await navigator.bluetooth.requestDevice(opts);
+  if (device && device !== picked) {
+    device.removeEventListener('gattserverdisconnected', onDisconnected);
+    if (device.gatt.connected) device.gatt.disconnect();
+  }
+  device = picked;
+  device.addEventListener('gattserverdisconnected', onDisconnected);
+  log('sys', `Picked "${device.name || '(no name)'}"  id=${device.id}`);
+  await connect();
+}
+
+function propsOf(c) {
+  const p = c.properties;
+  return ['read', 'write', 'writeWithoutResponse', 'notify', 'indicate'].filter((k) => p[k]).join(',');
+}
+
+function withTimeout(promise, ms, what) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const e = new Error(`${what} took longer than ${ms / 1000} s`);
+      e.name = 'TimeoutError';
+      reject(e);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function showInfo(html) {
+  const el = $('connectMsg');
+  el.className = 'notice';
+  el.innerHTML = html;
+  el.hidden = false;
+}
+
+async function connect() {
+  const name = esc(device.name || 'the IQ3');
+  $('dropped').hidden = true;
+  for (const k of Object.keys(ch)) delete ch[k];
+
+  // Android often fails or stalls the first GATT connect, so give each try 12 s, then abort and retry.
+  const ATTEMPTS = 3;
+  server = null;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    setStatus(`Connecting ${attempt}/${ATTEMPTS}…`, 'busy');
+    showInfo(`Connecting to <b>${name}</b>, try ${attempt} of ${ATTEMPTS}… If your phone asks to pair with it, tap <b>Pair</b>.`);
+    log('sys', `Connect attempt ${attempt}/${ATTEMPTS}…`);
+    try {
+      server = await withTimeout(device.gatt.connect(), 12000, 'Connecting');
+      if (server.connected) break;
+    } catch (e) {
+      lastErr = e;
+      server = null;
+      log('err', `Attempt ${attempt} failed: ${e.name}: ${e.message}`);
+      try { device.gatt.disconnect(); } catch (_) { /* aborts a stalled attempt */ }
+      if (attempt < ATTEMPTS) await sleep(1000);
+    }
+  }
+  if (!server || !server.connected) throw lastErr || new Error('Could not connect');
+  log('sys', 'GATT connected. Listing services this page may see:');
+  showInfo(`Connected to <b>${name}</b>. Reading its services…`);
+
+  const services = await withTimeout(server.getPrimaryServices(), 15000, 'Reading services');
+  for (const s of services) {
+    let chars = [];
+    try { chars = await s.getCharacteristics(); } catch (e) { /* some services hide their chars */ }
+    log('sys', `service ${s.uuid}` + chars.map((c) => `\n    ${c.uuid} [${propsOf(c)}]`).join(''));
+  }
+
+  let svc;
+  try {
+    svc = await server.getPrimaryService(UUID.SVC);
+  } catch (e) {
+    const name = device.name || 'That device';
+    device.gatt.disconnect();
+    const err = new Error(`"${name}" isn't your IQ3, because it doesn't have the DaVinci service. Tap "Show every nearby device" again and try another one. Hold your phone right against the IQ3 so it has the strongest signal bars in the list.`);
+    err.code = 'WRONG_DEVICE';
+    throw err;
+  }
+  for (const [key, uuid] of [['ctrl', UUID.CTRL], ['state', UUID.STATE], ['session', UUID.SESSION], ['paths', UUID.PATHS], ['stats', UUID.STATS]]) {
+    try { ch[key] = await svc.getCharacteristic(uuid); } catch (e) { log('err', `missing ${key} characteristic ${uuid}`); }
+  }
+
+  setStatus(device.name || 'Connected', 'on');
+  $('connectMsg').hidden = true;
+  $('connectCard').hidden = true;
+  $('live').hidden = false;
+  $('controls').hidden = false;
+  $('info').hidden = false;
+
+  await readState();
+  await subscribe();
+  await readInfo();
+  await readStats();
+  await readPaths();
+  await readSession();
+
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => { if (server && server.connected) readState().catch(() => {}); }, 3000);
+}
+
+async function subscribe() {
+  for (const [key, handler] of [['state', (dv) => onState(dv, 'notify')], ['session', onSession]]) {
+    const c = ch[key];
+    if (!c || !(c.properties.notify || c.properties.indicate)) continue;
+    try {
+      c.addEventListener('characteristicvaluechanged', (e) => handler(e.target.value));
+      await gatt(() => c.startNotifications());
+      log('sys', `Listening for ${key} updates`);
+    } catch (e) {
+      log('err', `Could not listen for ${key} updates: ${e.message}. Polling instead.`);
+    }
+  }
+}
+
+function onDisconnected() {
+  clearInterval(pollTimer);
+  setStatus('Disconnected', '');
+  $('dropped').hidden = false;
+  log('err', 'Disconnected');
+}
+
+// ---- Reading ----------------------------------------------------------------
+async function readState() {
+  if (!ch.state) return;
+  const dv = await gatt(() => ch.state.readValue());
+  onState(dv, 'read');
+}
+
+function onState(dv, how) {
+  const raw = hex(bytesOf(dv));
+  if (raw !== lastStateHex) {
+    log('rx', `state (${how}) ${raw}`);
+    lastStateHex = raw;
+  }
+  if (dv.byteLength < 14) return;
+  const flags = dv.getUint8(13);
+  last = {
+    state: dv.getUint8(0),
+    cur: dv.getUint16(1, true) / 100,
+    target: dv.getUint16(3, true) / 100,
+    path: dv.getUint8(7),
+    timer: dv.getUint32(8, true),
+    battery: dv.getUint8(12),
+    celsius: (flags & 0x02) !== 0,
+    atTemp: (flags & 0x04) !== 0,
+    charging: (flags & 0x08) !== 0,
+    vibration: (flags & 0x10) !== 0,
+    stealth: (flags & 0x20) !== 0,
+    flags,
+  };
+  render();
+}
+
+function fmtTemp(c) {
+  if (!last || !c) return '--';
+  return last.celsius ? `${Math.round(c)}°` : `${Math.round((c * 9) / 5 + 32)}°`;
+}
+
+function render() {
+  const s = last;
+  const unit = s.celsius ? 'C' : 'F';
+  $('curTemp').textContent = fmtTemp(s.cur);
+  $('tgtTemp').textContent = s.target ? `${fmtTemp(s.target)}${unit}` : '--';
+
+  // Gauge: 270° sweep starting bottom-left.
+  const C = 2 * Math.PI * 86;
+  const sweep = 0.75 * C;
+  const frac = (t) => Math.max(0, Math.min(1, (t - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN)));
+  $('track').setAttribute('stroke-dasharray', `${sweep} ${C}`);
+  $('arc').setAttribute('stroke-dasharray', `${sweep * frac(s.cur)} ${C}`);
+  const ang = ((135 + 270 * frac(s.target)) * Math.PI) / 180;
+  $('tgtDot').setAttribute('cx', (100 + 86 * Math.cos(ang)).toFixed(1));
+  $('tgtDot').setAttribute('cy', (100 + 86 * Math.sin(ang)).toFixed(1));
+  $('tgtDot').style.opacity = s.target ? 1 : 0;
+
+  $('stateChip').textContent = `${STATE_NAMES[s.state] || 'Unknown'} · ${s.state}`;
+  const pct = s.battery <= 5 ? s.battery * 20 : null;
+  $('batChip').textContent = pct === null ? `Battery ? (${s.battery})` : `Battery ${pct}%${s.charging ? ' · charging' : ''}`;
+  $('batChip').className = 'chip' + (s.charging ? ' good' : '');
+  $('readyChip').hidden = !s.atTemp;
+  $('readyChip').className = 'chip hot';
+
+  $('flagChips').innerHTML = [
+    `°${unit}`,
+    `vibration ${s.vibration ? 'on' : 'off'}`,
+    `stealth ${s.stealth ? 'on' : 'off'}`,
+    `timer ${s.timer}`,
+    `path ${s.path}`,
+    `flags 0x${s.flags.toString(16).padStart(2, '0')}`,
+  ].map((t) => `<span class="chip">${esc(t)}</span>`).join('');
+
+  $('btnUnit').textContent = s.celsius ? 'Use °F' : 'Use °C';
+  $('btnVib').classList.toggle('on', s.vibration);
+  $('btnStealth').classList.toggle('on', s.stealth);
+}
+
+async function readInfo() {
+  const rows = [];
+  for (const [uuid, label, where] of DIS_CHARS) {
+    try {
+      const svc = await gatt(() => server.getPrimaryService(where === 'GAP' ? UUID.GAP : UUID.DIS));
+      const c = await gatt(() => svc.getCharacteristic(uuid));
+      const dv = await gatt(() => c.readValue());
+      const v = ascii(dv);
+      rows.push([label, v || hex(bytesOf(dv))]);
+      log('rx', `${label}: ${v}`);
+    } catch (e) {
+      rows.push([label, 'not readable']);
+    }
+  }
+  $('infoList').innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+}
+
+async function readStats() {
+  if (!ch.stats) return;
+  const dv = await gatt(() => ch.stats.readValue());
+  log('rx', `stats ${hex(bytesOf(dv))}`);
+  if (dv.byteLength < 20) return;
+  const totalSec = dv.getUint32(0, true);
+  const sessTime = dv.getUint16(4, true);
+  const sessCount = dv.getUint8(6);
+  const tempSum = dv.getUint16(7, true);
+  const tempCount = dv.getUint8(9);
+  const pathUses = [10, 12, 14, 16].map((o) => dv.getUint16(o, true));
+  const puffs = dv.getUint16(18, true);
+  const rows = [
+    ['Heating time', `${(totalSec / 3600).toFixed(1)} h`],
+    ['Sessions', String(sessCount)],
+    ['Avg session', sessCount ? `${(sessTime / sessCount / 60).toFixed(1)} min` : '–'],
+    ['Puffs', String(puffs)],
+    ['Avg precision temp', tempCount ? String(Math.round(tempSum / tempCount)) : '–'],
+    ['Smart path uses', pathUses.join(' / ')],
+  ];
+  $('statsList').innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+}
+
+async function readPaths() {
+  if (!ch.paths) return;
+  const dv = await gatt(() => ch.paths.readValue());
+  log('rx', `smart paths (${dv.byteLength} bytes) ${hex(bytesOf(dv))}`);
+  const out = [];
+  for (let i = 0; i < 4 && (i + 1) * 26 <= dv.byteLength; i++) {
+    const o = i * 26;
+    const meta = dv.getInt16(o, true);
+    const dur = dv.getInt16(o + 2, true);
+    const n = Math.min(10, dv.getUint8(o + 24));
+    const pts = [];
+    for (let j = 0; j < n; j++) pts.push(`${dv.getUint8(o + 4 + j * 2)}→${dv.getUint8(o + 5 + j * 2)}°`);
+    out.push(`<div class="path"><b>Path ${i + 1}</b> · ${(dur / 60).toFixed(1)} min · meta ${meta}<br>${pts.join('  ') || 'no points'}</div>`);
+  }
+  $('paths').innerHTML = out.join('') || '<div class="path">Nothing readable</div>';
+}
+
+async function readSession() {
+  if (!ch.session) return;
+  const dv = await gatt(() => ch.session.readValue());
+  onSession(dv);
+}
+
+function onSession(dv) {
+  const b = bytesOf(dv);
+  const extra = b.length >= 17 ? `  (session flag ${b[15]}, puffs ${b[16]})` : '';
+  log('rx', `session ${hex(b)}${extra}`);
+}
+
+// ---- Writing ----------------------------------------------------------------
+async function send(bytes, label) {
+  if (!ch.ctrl) throw new Error('Not connected');
+  if (bytes[0] === 0x20) throw new Error('Blocked: 0x20 is factory reset');
+  const data = new Uint8Array(bytes);
+  log('tx', `${label}  [${hex(data)}]`);
+  await gatt(() => (ch.ctrl.properties.write
+    ? ch.ctrl.writeValueWithResponse(data)
+    : ch.ctrl.writeValueWithoutResponse(data)));
+}
+
+async function waitForState(pred, timeoutMs) {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    await readState();
+    if (last && pred(last)) return true;
+    await sleep(500);
+  }
+  return false;
+}
+
+async function nudge(mask) {
+  if (!last || last.state !== 6) {
+    await send([0x30, 0x05], 'Enter precision temp mode');
+    const ok = await waitForState((s) => s.state === 5 || s.state === 6, 3000);
+    if (!ok) log('err', 'Device did not report precision mode. Pressing the key anyway.');
+  }
+  await send([0x10, mask], mask === KEY_UP ? 'Press +' : 'Press −');
+  await sleep(100);
+  await send([0x11, mask], 'Release');
+  await sleep(250);
+  await readState();
+}
+
+const ACTIONS = {
+  connect: () => pickDevice(false),
+  connectAll: () => pickDevice(true),
+  reconnect: () => connect(),
+  buzz: async () => { await send([0x50, 0x01], 'Buzz (one short pulse)'); },
+  on: async () => { await send([0x30, 0x02], 'Power on'); await sleep(500); await readState(); },
+  off: async () => {
+    // Same three steps the official app sends.
+    await send([0x30, 0x01], 'Standby');
+    await sleep(500);
+    await send([0x30, 0x00], 'Power off');
+    await sleep(800);
+    await send([0x10, 0x00], 'Release keys');
+    await sleep(300);
+    await readState();
+  },
+  up: () => nudge(KEY_UP),
+  down: () => nudge(KEY_DOWN),
+  unit: async () => { const toC = !(last && last.celsius); await send([0xf0, toC ? 0x01 : 0x00], toC ? 'Display °C' : 'Display °F'); await sleep(300); await readState(); },
+  vib: async () => { const on = !(last && last.vibration); await send([0x90, on ? 0x01 : 0x00], `Vibration ${on ? 'on' : 'off'}`); await sleep(300); await readState(); },
+  stealth: async () => { const on = !(last && last.stealth); await send([0x60, on ? 0x04 : 0xff], `Stealth ${on ? 'on' : 'off'}`); await sleep(300); await readState(); },
+  boost: async () => { await send([0x30, 0x04], 'Boost (experimental)'); await sleep(500); await readState(); },
+  unboost: async () => { await send([0x30, 0x09], 'Exit boost (experimental)'); await sleep(500); await readState(); },
+  cool: async () => { await send([0x30, 0x0a], 'Cooldown (experimental)'); await sleep(500); await readState(); },
+  showbat: async () => { await send([0x30, 0x0d], 'Show battery on device (experimental)'); await sleep(500); await readState(); },
+  raw: async () => {
+    const txt = $('rawHex').value.trim();
+    const parts = txt.replace(/0x/gi, '').split(/[\s,]+/).filter(Boolean);
+    if (!parts.length || parts.length > 20 || parts.some((p) => !/^[0-9a-f]{1,2}$/i.test(p))) {
+      throw new Error('Type bytes as hex, like: 50 03');
+    }
+    await send(parts.map((p) => parseInt(p, 16)), 'Raw');
+    await sleep(400);
+    await readState();
+  },
+  refresh: async () => { await readState(); await readInfo(); await readStats(); await readPaths(); await readSession(); },
+  copy: async () => {
+    const text = logLines.join('\n');
+    try { await navigator.clipboard.writeText(text); log('sys', `Copied ${logLines.length} lines`); }
+    catch (e) {
+      const r = document.createRange(); r.selectNodeContents($('log'));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      log('sys', 'Clipboard blocked. The log is selected, so copy it by hand.');
+    }
+  },
+  clear: async () => { logLines.length = 0; $('log').innerHTML = ''; },
+};
+
+// Explain a failed connect in plain words, right above the Connect button.
+function connectHint(err, showedAll) {
+  const name = err && err.name;
+  const msg = String(err && err.message || err);
+  let text;
+  if (err && err.code === 'WRONG_DEVICE') {
+    text = msg;
+  } else if (name === 'NotFoundError' && /adapter/i.test(msg)) {
+    text = "Your phone's Bluetooth is off. Turn it on, then tap Connect again.";
+  } else if (name === 'NotFoundError') {
+    text = showedAll
+      ? 'Nothing picked. Your IQ3 may show up as "Unknown device". Hold the phone right against it and pick the one with the strongest signal bars.'
+      : "Nothing picked. If the list was empty, the IQ3 isn't broadcasting yet. Do step 1 (up and down together 5 times, wait for the blue flashes), then tap Connect again.";
+  } else if (['NetworkError', 'TimeoutError', 'AbortError'].includes(name) || /gatt|connect/i.test(msg)) {
+    $('connectMsg').className = 'notice warn';
+    $('connectMsg').innerHTML = `Your phone sees the IQ3 but can't open a connection. Try these in order, and tap Connect after each one:
+      <ol class="fixes">
+        <li>Pull down your notifications. If there's a <b>pairing request</b> from DAVINCI IQ3, tap Pair.</li>
+        <li>Make sure no other phone or tablet nearby has the DaVinci app open.</li>
+        <li>Turn your phone's Bluetooth <b>off and back on</b>.</li>
+        <li>In Settings, open Connected devices. If DAVINCI IQ3 is saved there, tap its gear, then <b>Forget</b>.</li>
+        <li>Turn the IQ3's Bluetooth off and on: 5 presses (red flashes), then 5 presses again (blue flashes).</li>
+      </ol>`;
+    $('connectMsg').hidden = false;
+    return;
+  } else {
+    text = `Something went wrong: ${msg}`;
+  }
+  $('connectMsg').className = 'notice warn';
+  $('connectMsg').textContent = text;
+  $('connectMsg').hidden = false;
+}
+
+const NO_LOCK = new Set(['copy', 'clear']);
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const act = b.dataset.act;
+  const lock = !NO_LOCK.has(act);
+  if (lock && busy) return;
+  if (lock) { busy = true; b.classList.add('busy'); }
+  try {
+    await ACTIONS[act]();
+  } catch (err) {
+    if (err && err.name === 'NotFoundError' && /cancel/i.test(err.message)) log('sys', 'Picker closed');
+    else log('err', `${act}: ${err && err.name ? err.name + ': ' : ''}${err && err.message ? err.message : err}`);
+    if (act.startsWith('connect') || act === 'reconnect') {
+      setStatus(server && server.connected ? (device.name || 'Connected') : 'Not connected', server && server.connected ? 'on' : '');
+      if (act.startsWith('connect')) connectHint(err, act === 'connectAll');
+    }
+  } finally {
+    if (lock) { busy = false; b.classList.remove('busy'); }
+  }
+});
+
+// ---- Startup checks ---------------------------------------------------------
+(function init() {
+  const warn = $('unsupported');
+  if (!window.isSecureContext) {
+    warn.hidden = false;
+    warn.textContent = 'This page has to load over https:// for Bluetooth to work.';
+  } else if (!navigator.bluetooth) {
+    warn.hidden = false;
+    warn.textContent = 'This browser has no Web Bluetooth. Open this page in Chrome on your Pixel (not Firefox, and not an in-app browser).';
+    $('btnConnect').disabled = true;
+  }
+  log('sys', `Ready. ${navigator.userAgent}`);
+})();
+</script>
+</body>
+</html>

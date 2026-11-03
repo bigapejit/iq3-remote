@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="62%" r="72%">
+      <stop offset="0" stop-color="#6b3a1c"/>
+      <stop offset=".42" stop-color="#2a3540"/>
+      <stop offset="1" stop-color="#141a20"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#40464e"/>
+      <stop offset=".18" stop-color="#25292e"/>
+      <stop offset=".62" stop-color="#1c1f23"/>
+      <stop offset=".82" stop-color="#3a3f46"/>
+      <stop offset="1" stop-color="#16181b"/>
+    </linearGradient>
+    <linearGradient id="cap" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#5a6069"/>
+      <stop offset="1" stop-color="#26292e"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <ellipse cx="256" cy="420" rx="118" ry="16" fill="#ff8a45" opacity=".55" filter="url(#soft)"/>
+  <!-- body with the concave top -->
+  <path d="M190 146 Q256 168 322 146 L322 384 Q322 402 304 402 L208 402 Q190 402 190 384 Z" fill="url(#body)"/>
+  <!-- mouthpiece cap -->
+  <path d="M196 126 Q256 150 316 126 Q328 124 328 136 L328 144 Q256 168 184 144 L184 136 Q184 124 196 126 Z" fill="url(#cap)"/>
+  <!-- dot display -->
+  <g fill="#ffffff" opacity=".35" filter="url(#glow)">
+    <rect x="236" y="196" width="40" height="112" rx="10"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="244" cy="200" r="3.6"/><circle cx="256" cy="200" r="3.6"/><circle cx="268" cy="200" r="3.6"/>
+    <circle cx="268" cy="212" r="3.6"/>
+    <circle cx="244" cy="224" r="3.6"/><circle cx="256" cy="224" r="3.6"/><circle cx="268" cy="224" r="3.6"/>
+    <circle cx="268" cy="236" r="3.6"/>
+    <circle cx="244" cy="248" r="3.6"/><circle cx="256" cy="248" r="3.6"/><circle cx="268" cy="248" r="3.6"/>
+    <circle cx="244" cy="272" r="3.6"/><circle cx="256" cy="272" r="3.6"/><circle cx="268" cy="272" r="3.6"/>
+    <circle cx="268" cy="284" r="3.6"/><circle cx="268" cy="296" r="3.6"/>
+  </g>
+</svg>
