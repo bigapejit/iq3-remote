@@ -3,9 +3,9 @@
 //   off → pull the bars up and hold 3 s: they stretch apart, then "brup", it turns on.
 //   on  → slide to the bottom, keep pulling down and hold 3 s to turn it off.
 const EMBER = '255,138,69';
-const READY = '168,220,234';
-const DIM = '139,151,163';
-const BONE = '236,230,220';
+const READY = '255,255,255';
+const DIM = '138,140,139';
+const BONE = '255,255,255';
 const PAD = 8;
 const ENGAGE_PX = 34;      // how far past the end the pull must go before the hold counts
 const HOLD_MS = 3000;
@@ -259,7 +259,7 @@ export class ThermoStrip {
     else if (!awake && this.dragging && pullAmt > 1) litTo = this.min + (this.max - this.min) * p * 0.75;
 
     g.textAlign = 'right';
-    g.font = '400 11px Saira, system-ui, sans-serif';
+    g.font = '500 11px Montserrat, system-ui, sans-serif';
     for (let v = this.min; v <= this.max; v++) {
       const y = yAt(v);
       if (y < -4 || y > h + 4) continue;
@@ -280,7 +280,7 @@ export class ThermoStrip {
       alpha += this.flash * 0.5;
       g.fillStyle = `rgba(${color},${Math.min(1, alpha).toFixed(3)})`;
       bar(g, right - len, y - thick / 2, len, thick);
-      if (major && awake && s < 0.05 && (level == null || Math.abs(v - level) > 3)) {
+      if (major && awake && this.dragging && s < 0.05 && (level == null || Math.abs(v - level) > 3)) {
         g.fillStyle = `rgba(${BONE},${Math.min(0.8, 0.22 + 0.35 * (mag - 1)).toFixed(3)})`;
         g.fillText(String(v), right - len - 8, y + 4);
       }
@@ -296,7 +296,7 @@ export class ThermoStrip {
       g.arc(right - len - 7, y, 3.2, 0, Math.PI * 2);
       g.fill();
       if (!this.dragging) {
-        g.font = '500 12px Saira, system-ui, sans-serif';
+        g.font = '600 12px Montserrat, system-ui, sans-serif';
         g.fillText(String(level), right - len - 15, y + 4);
       }
     }

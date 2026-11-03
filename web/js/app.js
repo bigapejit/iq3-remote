@@ -28,7 +28,7 @@ const iq3 = DEMO ? new (await import('./demo.js')).FakeIQ3({ log }) : new IQ3({ 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const stageEl = $('stage');
 const ui = {
-  drawStart: null, lastDraw: null, searchSince: null, toastTimer: 0, heatCss: -1,
+  drawStart: null, lastDraw: null, searchSince: null, toastTimer: 0, heatCss: -1, chargeCss: -1,
   intent: null,                 // { dir: 'on' | 'off', until } right after a power gesture
   powerOnAfterConnect: false,
   pickOnRelease: false,
@@ -49,34 +49,55 @@ function modeOf(s) {
   return 'off';
 }
 
-function modeText(s, link, awake) {
-  if (link === 'idle') return 'Not connected';
-  if (link === 'searching') return 'Looking for your IQ3';
-  if (link === 'connecting') return 'Connecting';
-  if (!s) return 'Connected';
-  if (intent() === 'on' && !iq3.heating) return 'Turning on';
-  if (intent() === 'off' && iq3.heating) return 'Turning off';
-  if (!awake) return s.charging ? 'Off, charging' : 'Off';
+// One short status line under the name, the way the car app says "Parked" or "Charging".
+function statusText(s, link, awake, now) {
+  if (!DEMO && !iq3.supported) return { text: 'Bluetooth unavailable' };
+  if (link === 'idle') return { text: 'Not connected' };
+  if (link === 'searching') return { text: 'Looking for your IQ3' };
+  if (link === 'connecting') return { text: 'Connecting' };
+  if (!s) return { text: 'Connected' };
+  if (ui.drawStart) return { text: `Drawing ${((now - ui.drawStart) / 1000).toFixed(1)} s`, hot: true };
+  if (ui.lastDraw && now < ui.lastDraw.until) {
+    const secs = `${ui.lastDraw.seconds.toFixed(1)} s`;
+    return { text: ui.lastDraw.n ? `Draw ${ui.lastDraw.n} · ${secs}` : `Draw · ${secs}` };
+  }
+  if (intent() === 'on' && !iq3.heating) return { text: 'Turning on' };
+  if (intent() === 'off' && iq3.heating) return { text: 'Turning off' };
+  if (!awake) {
+    if (s.charging) return { text: s.battery >= 100 ? 'Charged' : 'Charging', charging: true };
+    return { text: 'Off' };
+  }
+  if (iq3.desiredC != null) return { text: `Setting ${Math.round(toDisp(iq3.desiredC))}°` };
   switch (s.state) {
-    case STATE.BOOST: return 'Boost';
+    case STATE.BOOST: return { text: 'Boost', hot: true };
     case STATE.SMART_PATH:
-    case STATE.PATH_SELECT: return `Smart path ${s.path + 1}`;
-    default: return s.atTemp ? 'Ready' : 'Heating';
+    case STATE.PATH_SELECT: return { text: `Smart path ${s.path + 1}` };
+    default: return s.atTemp ? { text: 'Ready' } : { text: `Heating to ${Math.round(toDisp(s.target))}°` };
   }
 }
 
 // ---- 3D stage and the label on the device -------------------------------------------
 const coFront = $('coFront');
+const coPort = $('coPort');
 
 function onFrame(a) {
   const w = coFront.offsetWidth;
   const h = coFront.offsetHeight;
   coFront.style.transform = `translate(${(a.label.x - w / 2).toFixed(1)}px, ${(a.label.y - h / 2).toFixed(1)}px)`;
   coFront.style.opacity = a.facing > 0.5 ? '1' : '0';
-  // The stage light follows the eased heat from the 3D loop.
+  if (a.port) {
+    coPort.style.transform = `translate(${(a.port.x - coPort.offsetWidth / 2).toFixed(1)}px, ${(a.port.y - coPort.offsetHeight / 2).toFixed(1)}px)`;
+    coPort.style.opacity = a.port.facing > 0.55 ? '1' : '0';
+  }
+  // The stage light follows the eased heat and charge from the 3D loop.
   if (Math.abs(a.heat - ui.heatCss) > 0.002) {
     ui.heatCss = a.heat;
     stageEl.style.setProperty('--heat', a.heat.toFixed(3));
+  }
+  const charge = a.charge || 0;
+  if (Math.abs(charge - ui.chargeCss) > 0.002) {
+    ui.chargeCss = charge;
+    stageEl.style.setProperty('--charge', charge.toFixed(3));
   }
 }
 
@@ -85,7 +106,7 @@ try {
   stage = new Stage($('gl'), { reducedMotion: reduced, onFrame, wrap: ui.wrap });
 } catch (e) {
   log('err', `3D view unavailable: ${e.message}`);
-  onFrame({ label: { x: innerWidth * 0.44, y: innerHeight * 0.68 }, facing: 1, heat: 0 });
+  onFrame({ label: { x: innerWidth * 0.44, y: innerHeight * 0.68 }, facing: 1, heat: 0, charge: 0 });
 }
 
 // ---- Temperature strip, which is also the power switch -------------------------------
@@ -158,33 +179,26 @@ function render() {
   if (!awake && connected) mode = 'off';
   const unit = isC() ? 'C' : 'F';
 
-  $('mode').textContent = modeText(s, link, awake);
+  const st = statusText(s, link, awake, now);
+  $('statusText').textContent = st.text;
+  $('status').classList.toggle('hot', !!st.hot);
+  $('status').classList.toggle('charging', !!st.charging);
   const tempEl = $('temp');
-  tempEl.hidden = !connected;
-  if (connected) tempEl.textContent = `${Math.round(toDisp(s.cur))}°`;
-  tempEl.classList.toggle('dim', !awake);
-
-  let sub = '';
-  let hot = false;
-  if (ui.drawStart) { sub = `Drawing ${((now - ui.drawStart) / 1000).toFixed(1)} s`; hot = true; }
-  else if (ui.lastDraw && now < ui.lastDraw.until) sub = ui.lastDraw.n ? `Draw ${ui.lastDraw.n}, ${ui.lastDraw.seconds.toFixed(1)} s` : `Draw, ${ui.lastDraw.seconds.toFixed(1)} s`;
-  else if (connected && !awake) sub = 'Pull up on the bars and hold to turn on';
-  else if (connected && iq3.desiredC != null) sub = `Setting ${Math.round(toDisp(iq3.desiredC))}°`;
-  else if (connected && s.target > 50) sub = `Target ${Math.round(toDisp(s.target))}°`;
-  $('sub').textContent = sub;
-  $('sub').classList.toggle('hot', hot);
+  tempEl.hidden = !awake;
+  if (awake) tempEl.textContent = `${Math.round(toDisp(s.cur))}°`;
 
   let help = '';
-  if (!DEMO && !iq3.supported) help = "This browser can't use Bluetooth. Open this page in Chrome on Android.";
-  else if (link === 'idle') help = "Turn on the IQ3's Bluetooth: press up and down together 5 times. Then pull up on the bars and hold.";
+  if (!DEMO && !iq3.supported) help = 'Open this page in Chrome on Android to use Bluetooth.';
+  else if (link === 'idle' && !iq3.device) help = "Turn on the IQ3's Bluetooth: press up and down together 5 times. Then pull up on the bars and hold.";
   else if (!connected && ui.searchSince && now - ui.searchSince > 12000) help = "Still looking. Check that the IQ3's Bluetooth is on and the DaVinci app is closed.";
   $('help').textContent = help;
   $('help').hidden = !help;
 
   $('battery').hidden = !connected;
   if (connected) {
-    $('batFill').setAttribute('width', (16.5 * s.battery / 100).toFixed(1));
+    $('batFill').setAttribute('width', (16.5 * Math.max(s.battery, 4) / 100).toFixed(1));
     $('batFill').classList.toggle('low', s.battery <= 20 && !s.charging);
+    $('batFill').classList.toggle('charging', s.charging);
     $('batBolt').style.display = s.charging ? '' : 'none';
     $('batText').textContent = `${s.battery}%`;
   }
@@ -198,19 +212,22 @@ function render() {
   }
   coFront.textContent = label;
   coFront.hidden = !label;
+  coPort.hidden = !(connected && s.charging);
 
-  // Dock
-  for (const b of document.querySelectorAll('.dock button[data-needs-device]')) b.disabled = !connected;
-  $('unitLabel').textContent = `°${unit}`;
-  $('dockVibrate').classList.toggle('on', connected && s.vibration);
-  $('dockDim').classList.toggle('on', connected && s.stealth);
+  // Quick controls and settings
+  for (const b of document.querySelectorAll('[data-needs-device]')) b.disabled = !connected;
   $('dockPaths').classList.toggle('on', connected && awake && (s.state === STATE.SMART_PATH || s.state === STATE.PATH_SELECT));
+  $('unitF').setAttribute('aria-pressed', String(unit === 'F'));
+  $('unitC').setAttribute('aria-pressed', String(unit === 'C'));
+  $('swVibrate').setAttribute('aria-checked', String(connected && s.vibration));
+  $('swDim').setAttribute('aria-checked', String(connected && s.stealth));
+  $('forgetRow').hidden = !iq3.device && !iq3.saved;
 
   // Stage
   const heat = connected ? clamp01((s.cur - 30) / (Math.max(s.target, 120) - 30)) : 0;
   if (!stage) stageEl.style.setProperty('--heat', heat.toFixed(3));
   stageEl.classList.toggle('drawing', !!ui.drawStart);
-  if (stage) stage.set({ connected, mode, temp: connected ? toDisp(s.cur) : null, heat, dim: connected && s.stealth, open: awake });
+  if (stage) stage.set({ connected, mode, temp: connected ? toDisp(s.cur) : null, heat, dim: connected && s.stealth, open: awake, charging: connected && s.charging, battery: connected ? s.battery : 0 });
 
   // Strip
   let [min, max] = unit === 'C' ? [177, 221] : [350, 430];
@@ -328,7 +345,10 @@ const ACT = {
     if (stage) stage.setWrap(ui.wrap);
     renderWraps();
   },
-  units: () => iq3.setCelsius(!isC()),
+  settings: () => openSheet('sheetSettings'),
+  dev: () => openSheet('sheetDev'),
+  unitF: () => (isC() ? iq3.setCelsius(false) : null),
+  unitC: () => (isC() ? null : iq3.setCelsius(true)),
   vibrate: () => iq3.setVibration(!(iq3.s && iq3.s.vibration)),
   dim: () => iq3.setStealth(!(iq3.s && iq3.s.stealth)),
   close: () => closeSheets(),
@@ -342,18 +362,22 @@ const ACT = {
     installPrompt.prompt();
     await installPrompt.userChoice;
     installPrompt = null;
-    $('install').hidden = true;
+    showInstall(false);
   },
 };
 
 // ---- Installable app -------------------------------------------------------------------------
 let installPrompt = null;
+function showInstall(on) {
+  $('install').hidden = !on;
+  $('settingsDot').hidden = !on;
+}
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   installPrompt = e;
-  $('install').hidden = false;
+  showInstall(true);
 });
-window.addEventListener('appinstalled', () => { installPrompt = null; $('install').hidden = true; });
+window.addEventListener('appinstalled', () => { installPrompt = null; showInstall(false); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch((e) => log('err', `Service worker: ${e.message}`));
 
 document.addEventListener('click', async (e) => {

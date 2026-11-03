@@ -6,7 +6,8 @@ An unofficial phone app for the DaVinci IQ3 vaporizer. Install it from Chrome on
 - **Power from the temperature bars.** Pull up and hold for 3 seconds to turn it on. Slide to the bottom, keep pulling, and hold to turn it off.
 - **Set the temperature** by sliding the bars.
 - **Draws are animated.** Vapor rises from the mouthpiece while you inhale, timed from the temperature dip a draw causes.
-- **Smart paths, °F or °C, vibration and a dim display**, all from the bottom bar.
+- **Charging.** Plug the IQ3 in and it turns around to show the cable in its port, lit green, with the battery level up top.
+- **Smart paths and wraps** from the bottom bar. **Settings** has °F or °C, vibration and a dim display.
 - **Wraps:** the four official colors (Onyx, Sapphire, Gunmetal, Amethyst) plus custom finishes.
 - **Remembers your IQ3** and reconnects when it comes back in range.
 
@@ -22,7 +23,7 @@ Not affiliated with or endorsed by DaVinci. Use at your own risk.
 
 The app needs Web Bluetooth. That means Chrome or Edge on Android, ChromeOS, Windows or macOS; iPhone browsers don't support it.
 
-To try it without a vaporizer, add `?demo` to the address.
+To try it without a vaporizer, add `?demo` to the address. Add `&charging` to see it plugged in, or `&hot` to start it heating.
 
 ## How it works
 

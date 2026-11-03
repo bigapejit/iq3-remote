@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#141a20">
+<meta name="theme-color" content="#161719">
 <meta name="description" content="An unofficial remote for the DaVinci IQ3 vaporizer.">
 <title>IQ3</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,100..900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300..700&display=swap" rel="stylesheet">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -19,125 +19,147 @@
 } }
 </script>
 <style>
-  @property --heat { syntax: '<number>'; inherits: true; initial-value: 0; }
-
   :root {
-    --slate-hi: #2a3540;
-    --slate-lo: #141a20;
-    --zirconia: #ece6dc;
-    --mist: #8b97a3;
+    --bg: #161719;
+    --sheet: #1f2023;
+    --well: #2b2c2f;
+    --line: rgba(255,255,255,.08);
+    --text: #ffffff;
+    --text-2: #a4a5a7;
+    --icon: #8a8c8b;
     --ember: #ff8a45;
-    --glacier: #a8dcea;
-    --cold-glow: #3d5468;
-    --hot-glow: #8a3d17;
-    --font: 'Saira', system-ui, sans-serif;
-    --top: max(16px, env(safe-area-inset-top));
+    --green: #3ccb6f;
+    --blue: #3e6ae1;
+    --font: 'Montserrat', system-ui, sans-serif;
+    --top: max(18px, env(safe-area-inset-top));
     --bottom: max(14px, env(safe-area-inset-bottom));
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--slate-lo); color: var(--zirconia); font-family: var(--font); -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
   body { overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
   button { font-family: var(--font); cursor: pointer; }
-  button:focus-visible { outline: 2px solid var(--glacier); outline-offset: 3px; border-radius: 8px; }
+  button:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 8px; }
   [hidden] { display: none !important; }
 
-  /* The stage: its light is the oven temperature */
+  /* The stage: flat Tesla charcoal. A soft light under the device takes the heat, or green while charging. */
   .stage {
     position: fixed; inset: 0; overflow: hidden;
+    --heat: 0; --charge: 0;
     background:
-      radial-gradient(72% 46% at 44% 60%, color-mix(in oklab, var(--cold-glow), var(--hot-glow) calc(var(--heat) * 100%)) 0%, transparent 72%),
-      linear-gradient(180deg, var(--slate-hi) 0%, var(--slate-lo) 80%);
+      radial-gradient(54% 28% at 46% 68%, rgba(255,138,69,calc(var(--heat) * .2)) 0%, transparent 72%),
+      radial-gradient(54% 28% at 50% 66%, rgba(60,203,111,calc(var(--charge) * .13)) 0%, transparent 72%),
+      var(--bg);
   }
   .stage::after {
     content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .9s ease;
-    background: radial-gradient(46% 30% at 50% 34%, rgba(236,230,220,.13), transparent 70%);
+    background: radial-gradient(46% 30% at 50% 36%, rgba(255,255,255,.07), transparent 70%);
   }
   .stage.drawing::after { opacity: 1; }
   #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
   /* Everything but the device steps back while picking a wrap */
-  .hud, .thermo, .dock, .label { transition: opacity .35s ease; }
-  .stage.showcase .hud, .stage.showcase .thermo, .stage.showcase .dock, .stage.showcase .label { opacity: 0 !important; pointer-events: none; }
+  .hud, .thermo, .dock, .label, .port { transition: opacity .35s ease; }
+  .stage.showcase .hud, .stage.showcase .thermo, .stage.showcase .dock, .stage.showcase .label, .stage.showcase .port { opacity: 0 !important; pointer-events: none; }
 
-  /* Readout */
-  .hud { position: absolute; top: var(--top); left: 22px; right: 22px; pointer-events: none; }
-  .topline { display: flex; align-items: center; justify-content: space-between; }
-  .name { pointer-events: auto; background: none; border: 0; padding: 8px 0; color: var(--zirconia); font-weight: 300; font-size: 22px; font-stretch: 125%; letter-spacing: .05em; -webkit-touch-callout: none; }
-  .topline-right { display: flex; align-items: center; gap: 14px; pointer-events: auto; }
-  .install { padding: 7px 13px; border: 0; border-radius: 999px; background: rgba(236,230,220,.1); color: var(--zirconia); font-size: 13px; font-weight: 500; }
-  .battery { display: flex; align-items: center; gap: 8px; color: var(--mist); font-size: 14px; font-variant-numeric: tabular-nums; }
-  .battery svg { width: 27px; height: 14px; overflow: visible; }
-  .battery .shell { fill: none; stroke: currentColor; stroke-width: 1.2; }
-  .battery .nub { fill: currentColor; }
-  #batFill { fill: var(--zirconia); }
+  /* Header: name, one status line, and the temperature while it's on */
+  .hud { position: absolute; top: var(--top); left: 24px; right: 130px; pointer-events: none; }
+  .name { pointer-events: auto; display: block; margin: 0; padding: 6px 0 2px; background: none; border: 0; color: var(--text); font-size: 28px; font-weight: 600; letter-spacing: .01em; -webkit-touch-callout: none; }
+  .status { display: flex; align-items: center; gap: 8px; margin: 2px 0 0; min-height: 22px; color: var(--text-2); font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .status.hot #statusText { color: var(--ember); }
+  .status.charging #statusText, .status.charging #batText { color: var(--green); }
+  .battery { display: inline-flex; align-items: center; gap: 7px; }
+  .battery svg { width: 24px; height: 12px; overflow: visible; }
+  .battery .shell { fill: none; stroke: currentColor; stroke-width: 1.2; opacity: .8; }
+  .battery .nub { fill: currentColor; opacity: .8; }
+  #batFill { fill: var(--text-2); }
   #batFill.low { fill: var(--ember); }
-  #batBolt { fill: var(--ember); stroke: var(--slate-lo); stroke-width: 1; }
-  .mode { margin: 22px 0 0; font-size: 16px; color: var(--mist); }
-  .temp { margin: 2px 0 0 -5px; font-weight: 200; font-stretch: 125%; font-size: clamp(84px, 27vw, 150px); line-height: .95; letter-spacing: -.04em; font-variant-numeric: tabular-nums; transition: opacity .6s ease; }
-  .temp.dim { opacity: .42; }
-  .sub { margin: 8px 0 0; min-height: 1.4em; max-width: 19ch; font-size: 17px; line-height: 1.35; opacity: .8; font-variant-numeric: tabular-nums; }
-  .sub.hot { color: var(--ember); opacity: 1; }
-  .help { margin: 10px 0 0; max-width: 21ch; font-size: 19px; font-weight: 300; line-height: 1.4; color: var(--zirconia); opacity: .85; }
+  #batFill.charging { fill: var(--green); }
+  #batBolt { fill: #fff; stroke: var(--bg); stroke-width: 1; }
+  .sep { opacity: .5; }
+  .temp { margin: 14px 0 0 -3px; font-weight: 300; font-size: clamp(64px, 19vw, 96px); line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .help { margin: 14px 0 0; max-width: 23ch; color: var(--text-2); font-size: 15px; font-weight: 500; line-height: 1.45; }
 
-  /* A label written on the device itself, like the trunk label in a car app */
-  .label { position: absolute; left: 0; top: 0; padding: 12px 14px; background: none; border: 0; color: var(--zirconia); font-size: 17px; font-weight: 500; letter-spacing: .01em; white-space: nowrap; text-shadow: 0 1px 10px rgba(0,0,0,.65); will-change: transform; }
+  /* Labels drawn on the device itself, like the trunk label in a car app */
+  .label { position: absolute; left: 0; top: 0; padding: 12px 14px; background: none; border: 0; color: var(--text); font-size: 17px; font-weight: 600; white-space: nowrap; text-shadow: 0 1px 10px rgba(0,0,0,.7); will-change: transform; }
   .label:active { opacity: .55; }
+  .port { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; color: var(--green); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; pointer-events: none; will-change: transform; text-shadow: 0 1px 10px rgba(0,0,0,.6); }
+  .port svg { width: 24px; height: 24px; fill: currentColor; filter: drop-shadow(0 0 6px rgba(60,203,111,.6)); animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
 
   /* Temperature strip */
   .thermo { position: absolute; right: 0; width: 124px; top: calc(var(--top) + 64px); bottom: calc(var(--bottom) + 104px); touch-action: none; }
   .thermo canvas { width: 100%; height: 100%; display: block; }
-  .bubble { position: absolute; right: 120px; top: 0; max-width: 60vw; transform: translateY(-58%); text-align: right; opacity: 0; transition: opacity .2s; pointer-events: none; text-shadow: 0 2px 30px rgba(10,14,18,.6); }
+  .bubble { position: absolute; right: 120px; top: 0; max-width: 60vw; transform: translateY(-58%); text-align: right; opacity: 0; transition: opacity .2s; pointer-events: none; text-shadow: 0 2px 24px rgba(0,0,0,.6); }
   .bubble.on { opacity: 1; }
-  .bubble b { display: block; font-weight: 200; font-stretch: 125%; font-size: 46px; line-height: 1; letter-spacing: -.03em; }
+  .bubble b { display: block; font-weight: 300; font-size: 44px; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
   .bubble b:empty { display: none; }
-  .bubble small { display: block; margin-top: 4px; font-size: 13px; font-weight: 400; letter-spacing: .01em; color: var(--zirconia); opacity: .75; }
+  .bubble small { display: block; margin-top: 6px; font-size: 13px; font-weight: 500; color: var(--text-2); }
 
-  /* Dock */
-  .dock { position: absolute; left: 12px; right: 12px; bottom: var(--bottom); display: grid; grid-template-columns: repeat(5, 1fr); padding: 6px; border-radius: 26px; background: rgba(20,26,32,.5); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); box-shadow: inset 0 1px 0 rgba(236,230,220,.07); }
-  .dock button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 11px 2px 10px; background: none; border: 0; border-radius: 20px; color: var(--mist); font-size: 12px; transition: color .2s, background .2s; }
-  .dock button:active { background: rgba(236,230,220,.06); }
-  .dock button:disabled { opacity: .32; }
-  .dock button.on { color: var(--zirconia); }
-  .dock button.on::before { content: ''; position: absolute; top: 7px; right: calc(50% - 19px); width: 5px; height: 5px; border-radius: 50%; background: var(--ember); }
-  .dock svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  /* Quick controls: plain icons and labels, the way the car app does it */
+  .dock { position: absolute; left: 0; right: 0; bottom: var(--bottom); display: flex; justify-content: space-around; padding: 0 22px; }
+  .dock button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 76px; padding: 10px 6px; background: none; border: 0; color: var(--icon); font-size: 13px; font-weight: 500; transition: color .2s, opacity .2s; }
+  .dock button:active { opacity: .55; }
+  .dock button:disabled { opacity: .35; }
+  .dock button.on { color: var(--text); }
+  .dock .dot { position: absolute; top: 8px; right: calc(50% - 18px); width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
+  .dock svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
-  .toast { position: absolute; left: 22px; right: 130px; bottom: calc(var(--bottom) + 92px); padding: 12px 16px; border-radius: 18px; background: rgba(236,230,220,.94); color: var(--slate-lo); font-size: 14px; font-weight: 500; line-height: 1.35; opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s; pointer-events: none; }
+  .toast { position: absolute; left: 24px; right: 24px; bottom: calc(var(--bottom) + 96px); padding: 13px 16px; border-radius: 12px; background: #2c2d30; color: var(--text); font-size: 14px; font-weight: 500; line-height: 1.4; box-shadow: 0 8px 30px rgba(0,0,0,.4); opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s; pointer-events: none; }
   .toast.on { opacity: 1; transform: none; }
 
   /* Sheets */
-  .sheet-wrap { position: fixed; inset: 0; display: flex; align-items: flex-end; background: rgba(8,11,14,.45); opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .sheet-wrap { position: fixed; inset: 0; display: flex; align-items: flex-end; background: rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .25s; }
   .sheet-wrap.clear { background: transparent; }
   .sheet-wrap.open { opacity: 1; pointer-events: auto; }
-  .sheet { width: 100%; max-height: 84vh; overflow: auto; padding: 10px 22px calc(var(--bottom) + 16px); border-radius: 26px 26px 0 0; background: rgba(30,38,46,.94); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); transform: translateY(28px); transition: transform .32s cubic-bezier(.2,.8,.2,1); }
+  .sheet { width: 100%; max-height: 84vh; overflow: auto; padding: 8px 24px calc(var(--bottom) + 14px); border-radius: 20px 20px 0 0; background: var(--sheet); transform: translateY(28px); transition: transform .32s cubic-bezier(.2,.8,.2,1); }
   .sheet-wrap.open .sheet { transform: none; }
-  .grab { width: 40px; height: 4px; margin: 4px auto 16px; border-radius: 2px; background: rgba(236,230,220,.22); }
-  .sheet h2 { margin: 0 0 6px; font-weight: 300; font-stretch: 125%; font-size: 24px; letter-spacing: .01em; }
-  .sheet .lede { margin: 0 0 12px; color: var(--mist); font-size: 14px; line-height: 1.45; }
-  .path-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 14px; width: 100%; padding: 15px 0; background: none; border: 0; border-top: 1px solid rgba(236,230,220,.08); color: inherit; text-align: left; }
-  .path-row .range { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
-  .path-row .meta { display: block; margin-top: 2px; font-size: 13px; color: var(--mist); }
+  .grab { width: 36px; height: 4px; margin: 4px auto 18px; border-radius: 2px; background: rgba(255,255,255,.18); }
+  .sheet h2 { margin: 0 0 6px; font-size: 20px; font-weight: 600; }
+  .sheet .lede { margin: 0 0 10px; color: var(--text-2); font-size: 14px; font-weight: 500; line-height: 1.45; }
+
+  .item { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 60px; padding: 10px 0; background: none; border: 0; border-top: 1px solid var(--line); color: var(--text); font-size: 16px; font-weight: 500; text-align: left; }
+  .sheet h2 + .item { border-top: 0; }
+  .item small { display: block; margin-top: 3px; color: var(--text-2); font-size: 13px; }
+  .item.danger { color: #ff7b6b; }
+  .item .chev { width: 18px; height: 18px; fill: none; stroke: var(--icon); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .item.off-line > span { opacity: .4; }
+
+  .switch { position: relative; flex: none; width: 50px; height: 30px; padding: 0; border: 0; border-radius: 15px; background: #3a3b3e; transition: background .2s; }
+  .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .2s; }
+  .switch[aria-checked="true"] { background: var(--blue); }
+  .switch[aria-checked="true"]::after { transform: translateX(20px); }
+  .switch:disabled { opacity: .35; }
+  .seg { display: flex; flex: none; padding: 3px; border-radius: 10px; background: var(--well); }
+  .seg button { min-width: 50px; padding: 7px 0; border: 0; border-radius: 8px; background: none; color: var(--text-2); font-size: 14px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: #48494d; color: var(--text); }
+  .seg button:disabled { opacity: .35; }
+
+  .path-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 14px; width: 100%; padding: 14px 0; background: none; border: 0; border-top: 1px solid var(--line); color: inherit; text-align: left; }
+  .path-row:first-child { border-top: 0; }
+  .path-row .range { display: block; font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .path-row .meta { display: block; margin-top: 3px; font-size: 13px; font-weight: 500; color: var(--text-2); }
   .path-row svg { width: 120px; height: 40px; }
-  .path-row svg path { fill: none; stroke: rgba(236,230,220,.55); stroke-width: 1.5; }
+  .path-row svg path { fill: none; stroke: rgba(255,255,255,.5); stroke-width: 1.5; }
   .path-row.active .range { color: var(--ember); }
   .path-row.active svg path { stroke: var(--ember); }
-  .empty { color: var(--mist); font-size: 15px; }
+  .empty { color: var(--text-2); font-size: 15px; font-weight: 500; }
 
   .wrap-head { display: flex; align-items: baseline; justify-content: space-between; }
-  .wrap-head span { font-size: 16px; color: var(--mist); }
-  .swatch-label { margin: 14px 0 10px; font-size: 13px; color: var(--mist); }
+  .wrap-head span { font-size: 15px; font-weight: 500; color: var(--text-2); }
+  .swatch-label { margin: 14px 0 10px; font-size: 13px; font-weight: 500; color: var(--text-2); }
   .swatch-row { display: flex; flex-wrap: wrap; gap: 14px; }
-  .swatch { width: 52px; height: 52px; border-radius: 50%; border: 0; padding: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 4px 14px rgba(0,0,0,.35); transition: transform .15s; }
+  .swatch { width: 50px; height: 50px; border-radius: 50%; border: 0; padding: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); transition: transform .15s; }
   .swatch:active { transform: scale(.94); }
-  .swatch.on { box-shadow: 0 0 0 2px var(--slate-lo), 0 0 0 4px var(--ember), 0 4px 14px rgba(0,0,0,.35); }
+  .swatch.on { box-shadow: 0 0 0 3px var(--sheet), 0 0 0 5px #fff; }
 
-  .log { margin: 12px 0 0; max-height: 44vh; overflow: auto; padding: 10px; border-radius: 12px; background: rgba(0,0,0,.28); color: #c9d1d9; font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; user-select: text; -webkit-user-select: text; }
-  .info { margin: 0; color: var(--mist); font-size: 13px; line-height: 1.5; white-space: pre-line; }
+  .log { margin: 12px 0 0; max-height: 44vh; overflow: auto; padding: 10px; border-radius: 10px; background: rgba(0,0,0,.3); color: #c9cacc; font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; user-select: text; -webkit-user-select: text; }
+  .info { margin: 0; color: var(--text-2); font-size: 13px; font-weight: 500; line-height: 1.5; white-space: pre-line; }
   .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
-  .pill { padding: 11px 16px; border: 0; border-radius: 999px; background: rgba(236,230,220,.09); color: var(--zirconia); font-size: 14px; font-weight: 500; text-decoration: none; }
-  .pill.danger { color: #ffab9a; }
+  .pill { padding: 11px 16px; border: 0; border-radius: 999px; background: var(--well); color: var(--text); font-size: 14px; font-weight: 600; text-decoration: none; }
 
   @media (prefers-reduced-motion: reduce) {
-    .stage::after, .sheet, .toast, .bubble, .temp, .hud, .thermo, .dock, .label { transition: none; }
+    .stage::after, .sheet, .toast, .bubble, .hud, .thermo, .dock, .label, .port { transition: none; }
+    .port svg { animation: none; }
   }
 </style>
 </head>
@@ -146,52 +168,45 @@
   <canvas id="gl" aria-label="Your IQ3. Drag sideways to turn it."></canvas>
 
   <header class="hud">
-    <div class="topline">
-      <button id="name" class="name" aria-label="IQ3. Long-press for the developer log.">IQ3</button>
-      <div class="topline-right">
-      <button id="install" class="install" data-act="install" hidden>Install</button>
-      <div id="battery" class="battery" hidden>
-        <span id="batText">--%</span>
+    <button id="name" class="name" aria-label="IQ3. Long-press for the developer log.">IQ3</button>
+    <p id="status" class="status" aria-live="polite">
+      <span id="battery" class="battery" hidden>
         <svg viewBox="0 0 27 14" aria-hidden="true">
           <rect class="shell" x=".6" y=".6" width="22.8" height="12.8" rx="3.6"/>
           <rect class="nub" x="24.4" y="4.6" width="2" height="4.8" rx="1"/>
           <rect id="batFill" x="3" y="3" height="8" width="0" rx="1.6"/>
           <path id="batBolt" d="M13.4 1.5 8.6 7.6h3.6l-1.1 4.9 4.9-6.3h-3.6z"/>
         </svg>
-      </div>
-      </div>
-    </div>
-    <p id="mode" class="mode">Not connected</p>
+        <span id="batText">--%</span>
+        <span class="sep">·</span>
+      </span>
+      <span id="statusText">Not connected</span>
+    </p>
     <div id="temp" class="temp" hidden></div>
-    <p id="sub" class="sub" aria-live="polite"></p>
     <p id="help" class="help" hidden></p>
   </header>
 
   <button id="coFront" class="label" data-act="connect" hidden></button>
+  <div id="coPort" class="port" aria-hidden="true" hidden>
+    <svg viewBox="0 0 24 24"><path d="M13.2 2 4.6 13.4h6.2L9.9 22l8.7-11.6h-6.3z"/></svg>
+  </div>
 
   <div id="thermo" class="thermo" role="slider" aria-label="Temperature and power. Slide to set the temperature. Pull past the end and hold to turn on or off."><canvas></canvas></div>
   <div id="bubble" class="bubble" aria-hidden="true"><b></b><small></small></div>
 
-  <nav class="dock" aria-label="Quick settings">
+  <nav class="dock" aria-label="Quick controls">
     <button id="dockPaths" data-act="paths" data-needs-device disabled>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18c3.5 0 4.5-7 8-7s4 3 7 3h3"/><circle cx="3" cy="18" r="1.2"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18c4 0 5-9 9-9s5 4 9 4"/><circle cx="3" cy="18" r="1"/><circle cx="21" cy="13" r="1"/></svg>
       <span>Paths</span>
     </button>
     <button id="dockWrap" data-act="wraps">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3.5" width="10" height="17" rx="2.5"/><path d="M7 9.5l10-4M7 14.5l10-4M7 19l10-4"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2c3.2 3.8 5.8 7 5.8 10.2a5.8 5.8 0 0 1-11.6 0C6.2 10.2 8.8 7 12 3.2z"/><path d="M9.2 14.2a2.8 2.8 0 0 0 2.8 2.8"/></svg>
       <span>Wrap</span>
     </button>
-    <button id="dockUnits" data-act="units" data-needs-device disabled>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.6V5a2 2 0 1 1 4 0v8.6a4 4 0 1 1-4 0z"/><path d="M12 15.5V9"/></svg>
-      <span id="unitLabel">°F</span>
-    </button>
-    <button id="dockVibrate" data-act="vibrate" data-needs-device disabled>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="4" width="8" height="16" rx="2.2"/><path d="M4.5 9v6M19.5 9v6"/></svg>
-      <span>Vibrate</span>
-    </button>
-    <button id="dockDim" data-act="dim" data-needs-device disabled>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.2A7.8 7.8 0 1 1 9.8 4.5a6.2 6.2 0 0 0 9.7 9.7z"/></svg>
-      <span>Dim</span>
+    <button id="dockSettings" data-act="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+      <span>Settings</span>
+      <i id="settingsDot" class="dot" hidden></i>
     </button>
   </nav>
 
@@ -215,6 +230,32 @@
   </section>
 </div>
 
+<div id="sheetSettings" class="sheet-wrap">
+  <section class="sheet" aria-label="Settings">
+    <div class="grab"></div>
+    <h2>Settings</h2>
+    <div class="item device-row"><span>Units</span>
+      <div class="seg" role="group" aria-label="Units">
+        <button id="unitF" data-act="unitF" data-needs-device aria-pressed="true">°F</button>
+        <button id="unitC" data-act="unitC" data-needs-device aria-pressed="false">°C</button>
+      </div>
+    </div>
+    <div class="item device-row"><span>Vibration<small>Buzz when it's ready</small></span>
+      <button id="swVibrate" class="switch" role="switch" aria-checked="false" aria-label="Vibration" data-act="vibrate" data-needs-device></button>
+    </div>
+    <div class="item device-row"><span>Dim display<small>Stealth mode on the IQ3</small></span>
+      <button id="swDim" class="switch" role="switch" aria-checked="false" aria-label="Dim display" data-act="dim" data-needs-device></button>
+    </div>
+    <button id="install" class="item" data-act="install" hidden><span>Install app<small>Add IQ3 to your home screen</small></span>
+      <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+    </button>
+    <button class="item" data-act="dev"><span>Developer log</span>
+      <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+    </button>
+    <button id="forgetRow" class="item danger" data-act="forget">Forget this IQ3</button>
+  </section>
+</div>
+
 <div id="sheetDev" class="sheet-wrap">
   <section class="sheet" aria-label="Developer">
     <div class="grab"></div>
@@ -223,7 +264,6 @@
     <div class="row">
       <button class="pill" data-act="copy">Copy log</button>
       <a class="pill" href="lab.html">Open test page</a>
-      <button class="pill danger" data-act="forget">Forget this IQ3</button>
     </div>
     <pre id="log" class="log"></pre>
   </section>

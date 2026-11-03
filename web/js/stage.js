@@ -38,7 +38,13 @@ const DOT_DY = 0.0179;
 const DOT_TOP = 0.341;
 
 const LABEL = new THREE.Vector3(0, -0.27, D / 2);
-const COLD = new THREE.Color('#8fa9bf');
+// USB-C port on the back, under the logo. The charge label sits off the edge beside it.
+const PORT_Y = 0.02;
+const PORT_LABEL = new THREE.Vector3(W / 2 + 0.15, PORT_Y, -D / 2);
+const YAW_FRONT = -0.42;
+const YAW_BACK = Math.PI - 0.5;        // turned around to show the plugged-in port
+const COLD = new THREE.Color('#c9d0d8');
+const GREEN = new THREE.Color('#3ccb6f');
 const HOT = new THREE.Color('#ff9a5c');
 const DOT_ON = {
   heat: new THREE.Color('#ffd7b8'),
@@ -220,7 +226,7 @@ export class Stage {
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(this.renderer), 0.04).texture;
     this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 60);
 
-    this.tele = { connected: false, mode: 'off', temp: null, heat: 0, dim: false, open: false };
+    this.tele = { connected: false, mode: 'off', temp: null, heat: 0, dim: false, open: false, charging: false, battery: 0 };
     this.drawing = false;
     this.blipUntil = 0;
     this.lift = 0;
@@ -232,6 +238,10 @@ export class Stage {
     this.place = { ...HOME };
     this.openPos = 0;
     this.openVel = 0;
+    this.baseYaw = YAW_FRONT;
+    this.baseYawVel = 0;
+    this.plugPos = 0;
+    this.chargeShown = 0;
     this.dotGlow = 0;
     this._v = new THREE.Vector3();
     this._n = new THREE.Vector3();
@@ -369,8 +379,9 @@ export class Stage {
     knurl.position.y = -H / 2 + 0.008;
     this.dev.add(knurl);
     const port = new THREE.Mesh(new RoundedBoxGeometry(0.034, 0.09, 0.01, 2, 0.004), new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.6 }));
-    port.position.set(0, 0.02, -D / 2 + 0.002);
+    port.position.set(0, PORT_Y, -D / 2 + 0.002);
     this.dev.add(port);
+    this._buildPlug();
 
     // Mouthpiece arm on its hinge, with the oval outlet near the free end
     this.armPivot = new THREE.Group();
@@ -400,13 +411,10 @@ export class Stage {
     this.shadow.position.y = floorY;
     this.root.add(this.shadow);
     this.floorMat = new THREE.MeshBasicMaterial({
-      map: radialTexture([
-        [0, 'rgba(255,255,255,.10)'], [0.3, 'rgba(255,255,255,.035)'], [0.37, 'rgba(255,255,255,0)'],
-        [0.395, 'rgba(255,255,255,.42)'], [0.415, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0)'],
-      ], 512),
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: COLD.clone(), opacity: 0.45,
+      map: radialTexture([[0, 'rgba(255,255,255,.5)'], [0.22, 'rgba(255,255,255,.2)'], [0.55, 'rgba(255,255,255,.04)'], [1, 'rgba(255,255,255,0)']], 512),
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: HOT.clone(), opacity: 0,
     });
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 2.8), this.floorMat);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), this.floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = floorY - 0.001;
     this.root.add(floor);
@@ -438,6 +446,49 @@ export class Stage {
     const pts = new THREE.Points(g, this.vMat);
     pts.frustumCulled = false;
     s.add(pts);
+  }
+
+  // A USB-C plug in the back port, its cable running down to the floor and away. It slides in
+  // when the IQ3 reports charging, with a green light where it meets the port.
+  _buildPlug() {
+    this.plug = new THREE.Group();
+    this.plug.position.set(0, PORT_Y, -D / 2);
+    this.plug.visible = false;
+    this.dev.add(this.plug);
+    this.plugSlide = new THREE.Group();
+    this.plug.add(this.plugSlide);
+    const rubber = new THREE.MeshPhysicalMaterial({ color: 0x3a3c40, roughness: 0.5, metalness: 0.05, clearcoat: 0.4, clearcoatRoughness: 0.4 });
+    const housing = new THREE.Mesh(new RoundedBoxGeometry(0.062, 0.13, 0.11, 3, 0.022), rubber);
+    housing.position.z = -0.064;
+    this.plugSlide.add(housing);
+    const relief = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.024, 0.07, 20), rubber);
+    relief.rotation.x = Math.PI / 2;
+    relief.position.z = -0.15;
+    this.plugSlide.add(relief);
+    const V = THREE.Vector3;
+    const floorY = -H / 2 - 0.3 - PORT_Y + 0.016;
+    const path = new THREE.CatmullRomCurve3([
+      new V(0, 0, -0.17), new V(0, -0.01, -0.3), new V(0.02, -0.16, -0.44), new V(0.05, -0.5, -0.52),
+      new V(0.1, floorY + 0.02, -0.62), new V(0.24, floorY, -1.0), new V(0.5, floorY, -1.8), new V(0.9, floorY, -3),
+    ]);
+    this.plugSlide.add(new THREE.Mesh(new THREE.TubeGeometry(path, 160, 0.016, 12), rubber));
+
+    // The light ring, a glow, and a little green light spilling onto the shell
+    this.chargeRingMat = new THREE.MeshBasicMaterial({ color: GREEN.clone(), toneMapped: false });
+    const ring = new THREE.Mesh(new RoundedBoxGeometry(0.07, 0.138, 0.008, 2, 0.024), this.chargeRingMat);
+    ring.position.z = -0.012;
+    this.plugSlide.add(ring);
+    this.chargeGlowMat = new THREE.SpriteMaterial({
+      map: radialTexture([[0, 'rgba(255,255,255,.9)'], [0.25, 'rgba(255,255,255,.3)'], [1, 'rgba(255,255,255,0)']]),
+      color: GREEN.clone(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0,
+    });
+    const glow = new THREE.Sprite(this.chargeGlowMat);
+    glow.scale.set(0.42, 0.42, 1);
+    glow.position.z = -0.03;
+    this.plugSlide.add(glow);
+    this.chargeLight = new THREE.PointLight(GREEN.clone(), 0, 0.7, 2);
+    this.chargeLight.position.set(0, 0, -0.1);
+    this.plug.add(this.chargeLight);
   }
 
   // Stacked digits, the way the real display shows temperature.
@@ -560,8 +611,12 @@ export class Stage {
       this.yawVel += acc * dt;
       this.yawUser += this.yawVel * dt;
     }
+    // Off and charging, it turns around to show the plug, the way the car app shows the charge port.
+    const yawGoal = tele.connected && tele.charging && !tele.open && !this.showcase ? YAW_BACK : YAW_FRONT;
+    this.baseYawVel += ((yawGoal - this.baseYaw) * 9 - this.baseYawVel * 5.4) * dt;
+    this.baseYaw += this.baseYawVel * dt;
     const sway = this.reduced || this.showcase ? 0 : Math.sin(t * 0.33) * 0.07;
-    this.dev.rotation.set(0.05 + Math.sin(t * 0.9) * 0.008, -0.42 + sway + this.yawUser, Math.sin(t * 0.7) * 0.012);
+    this.dev.rotation.set(0.05 + Math.sin(t * 0.9) * 0.008, this.baseYaw + sway + this.yawUser, Math.sin(t * 0.7) * 0.012);
 
     // Mouthpiece springs open when the IQ3 is on, like a trunk
     const openGoal = tele.connected && tele.open ? 1 : 0;
@@ -583,8 +638,24 @@ export class Stage {
     this.heatShown += ((tele.connected ? tele.heat : 0) - this.heatShown) * Math.min(1, dt * 1.5);
     const hs = this.heatShown;
     this.rim.color.copy(COLD).lerp(HOT, hs);
-    this.floorMat.color.copy(COLD).lerp(HOT, hs);
-    this.floorMat.opacity = 0.32 + hs * 0.28 + (this.drawing ? 0.25 : 0);
+
+    // Plug slides in and out on a spring; the green light breathes until it's full
+    const charging = tele.connected && tele.charging;
+    this.plugPos += ((charging ? 1 : 0) - this.plugPos) * Math.min(1, dt * 5);
+    this.plug.visible = this.plugPos > 0.01;
+    this.plugSlide.position.z = -(1 - this.plugPos) * 0.32;
+    this.chargeShown += ((charging ? 1 : 0) - this.chargeShown) * Math.min(1, dt * 2);
+    const breathe = tele.battery >= 100 ? 1 : 0.62 + 0.38 * Math.sin(t * 2.4);
+    const cs = this.chargeShown * Math.min(1, this.plugPos * 1.2);
+    this.chargeRingMat.color.copy(GREEN).multiplyScalar(0.35 + 0.9 * cs * breathe);
+    this.chargeGlowMat.opacity = 0.75 * cs * breathe;
+    this.chargeLight.intensity = 0.9 * cs * breathe;
+
+    // The floor glows with the heat, or green while charging
+    const glowHeat = hs + (this.drawing ? 0.35 : 0);
+    const floorCharge = this.chargeShown * (1 - Math.min(1, hs * 2));
+    this.floorMat.color.copy(HOT).lerp(GREEN, floorCharge / Math.max(0.001, floorCharge + glowHeat));
+    this.floorMat.opacity = Math.min(0.75, glowHeat * 0.6 + floorCharge * 0.42);
     this.heatLight.intensity += ((hs * 1.4 + (this.drawing ? 2.2 : 0)) - this.heatLight.intensity) * Math.min(1, dt * 3);
 
     // Shadow tightens and fades as the device rises
@@ -612,10 +683,16 @@ export class Stage {
     const v = this._v.copy(LABEL);
     this.dev.localToWorld(v);
     v.project(this.camera);
+    const label = { x: (v.x * 0.5 + 0.5) * this.w, y: (-v.y * 0.5 + 0.5) * this.h };
+    const p = this._n.copy(PORT_LABEL);
+    this.dev.localToWorld(p);
+    p.project(this.camera);
     return {
-      label: { x: (v.x * 0.5 + 0.5) * this.w, y: (-v.y * 0.5 + 0.5) * this.h },
+      label,
       facing: Math.cos(this.dev.rotation.y),
+      port: { x: (p.x * 0.5 + 0.5) * this.w, y: (-p.y * 0.5 + 0.5) * this.h, facing: -Math.cos(this.dev.rotation.y) },
       heat: this.heatShown,
+      charge: this.chargeShown,
     };
   }
 }

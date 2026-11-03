@@ -9,7 +9,7 @@ export class FakeIQ3 extends IQ3 {
     super(opts);
     this.sim = {
       state: 1, curC: 26, targetC: fToC(390), celsius: false, vibration: true, stealth: false,
-      battery: 4, path: 0, puffs: 0, drawUntil: 0, nextDraw: 0, boostFrom: null,
+      battery: 4, charging: false, chargeFor: 0, path: 0, puffs: 0, drawUntil: 0, nextDraw: 0, boostFrom: null,
     };
     this.saved = { id: 'demo', name: 'DAVINCI IQ3' };
     const p = new URLSearchParams(location.search);
@@ -18,6 +18,9 @@ export class FakeIQ3 extends IQ3 {
       this.sim.curC = this.sim.targetC - 0.3;
       this.sim.nextDraw = performance.now() + Number(p.get('drawin') || 2500);
     }
+    // &charging starts plugged in; &plugin=ms plugs it in after a delay
+    if (p.has('charging')) { this.sim.charging = true; this.sim.battery = 3; }
+    if (p.has('plugin')) setTimeout(() => { this.sim.charging = true; }, Number(p.get('plugin')) || 3000);
     setInterval(() => this._simTick(0.2), 200);
   }
 
@@ -85,7 +88,7 @@ export class FakeIQ3 extends IQ3 {
     b[12] = s.battery;
     const heating = [2, 3, 4, 5, 6, 7].includes(s.state);
     b[13] = (s.celsius ? 0x02 : 0) | (heating && Math.abs(s.curC - s.targetC) < 1.5 ? 0x04 : 0)
-      | (s.vibration ? 0x10 : 0) | (s.stealth ? 0x20 : 0);
+      | (s.charging ? 0x08 : 0) | (s.vibration ? 0x10 : 0) | (s.stealth ? 0x20 : 0);
     return v;
   }
 
@@ -116,6 +119,10 @@ export class FakeIQ3 extends IQ3 {
     const s = this.sim;
     const now = performance.now();
     const heating = [2, 3, 4, 5, 6, 7].includes(s.state);
+    if (s.charging && s.battery < 5) {
+      s.chargeFor += dt;
+      if (s.chargeFor > 15) { s.chargeFor = 0; s.battery++; }
+    }
     if (!heating) {
       s.curC += (26 - s.curC) * 0.02;
       return;

@@ -1,7 +1,7 @@
 // Offline support. The app's own files are network-first, so updates show up as soon as
 // you're online, with the cached copy as a fallback. three.js and the font come from CDNs
 // and are cached the first time they load.
-const VERSION = 'iq3-v1';
+const VERSION = 'iq3-v2';
 const SHELL = [
   './', './index.html', './lab.html', './manifest.webmanifest',
   './js/app.js', './js/iq3.js', './js/stage.js', './js/thermo.js', './js/wraps.js', './js/demo.js',
